@@ -6,10 +6,11 @@ import (
 	"strings"
 
 	"github.com/xitongsys/parquet-go/common"
+	"github.com/xitongsys/parquet-go/ext"
 	"github.com/xitongsys/parquet-go/layout"
-	"github.com/xitongsys/parquet-go/types"
-	"github.com/xitongsys/parquet-go/schema"
 	"github.com/xitongsys/parquet-go/parquet"
+	"github.com/xitongsys/parquet-go/schema"
+	"github.com/xitongsys/parquet-go/types"
 )
 
 type Node struct {
@@ -60,7 +61,7 @@ func (p *ParquetPtr) Marshal(node *Node, nodeBuf *NodeBufType) []*Node {
 	if node.Val.IsNil() {
 		return nodes
 	}
-	node.Val = node.Val.Elem()
+	node.Val = ext.CustomMarshal(node.Val.Elem())
 	node.DL++
 	nodes = append(nodes, node)
 	return nodes
@@ -83,7 +84,7 @@ func (p *ParquetStruct) Marshal(node *Node, nodeBuf *NodeBufType) []*Node {
 			continue
 		}
 
-		newNode.Val = node.Val.Field(j)
+		newNode.Val = ext.CustomMarshal(node.Val.Field(j))
 		newNode.RL = node.RL
 		newNode.DL = node.DL
 		nodes = append(nodes, newNode)
@@ -111,7 +112,7 @@ func (p *ParquetMapStruct) Marshal(node *Node, nodeBuf *NodeBufType) []*Node {
 			continue
 		}
 
-		newNode.Val = node.Val.MapIndex(key)
+		newNode.Val = ext.CustomMarshal(node.Val.MapIndex(key))
 		newNode.RL = node.RL
 		newNode.DL = node.DL
 		nodes = append(nodes, newNode)
@@ -140,7 +141,7 @@ func (p *ParquetSlice) Marshal(node *Node, nodeBuf *NodeBufType) []*Node {
 	for j := ln - 1; j >= 0; j-- {
 		newNode := nodeBuf.GetNode()
 		newNode.PathMap = pathMap
-		newNode.Val = node.Val.Index(j)
+		newNode.Val = ext.CustomMarshal(node.Val.Index(j))
 		if j == 0 {
 			newNode.RL = node.RL
 		} else {
@@ -167,7 +168,7 @@ func (p *ParquetMap) Marshal(node *Node, nodeBuf *NodeBufType) []*Node {
 	rlNow, _ := p.schemaHandler.MaxRepetitionLevel(common.StrToPath(path))
 	for j := len(keys) - 1; j >= 0; j-- {
 		key := keys[j]
-		value := node.Val.MapIndex(key)
+		value := ext.CustomMarshal(node.Val.MapIndex(key))
 		newNode := nodeBuf.GetNode()
 		newNode.PathMap = node.PathMap.Children["Key_value"].Children["Key"]
 		newNode.Val = key
