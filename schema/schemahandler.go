@@ -287,6 +287,8 @@ func NewSchemaHandlerFromStruct(obj interface{}) (sh *SchemaHandler, err error) 
 
 				if m, ok := f.Type.MethodByName("MarshalParquet"); ok {
 					newItem.GoType = m.Type.Out(0)
+				} else if f.PkgPath == "" && f.Type.String() == "time.Time" {
+					newItem.GoType = reflect.TypeOf(int64(0))
 				} else {
 					newItem.GoType = f.Type
 				}
