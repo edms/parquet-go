@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/xitongsys/parquet-go/common"
+	"github.com/xitongsys/parquet-go/ext"
 	"github.com/xitongsys/parquet-go/parquet"
 )
 
@@ -284,19 +285,19 @@ func NewSchemaHandlerFromStruct(obj interface{}) (sh *SchemaHandler, err error) 
 				newItem := NewItem()
 				newItem.Info = common.StringToTag(tagStr)
 				newItem.Info.InName = f.Name
-
-				if m, ok := f.Type.MethodByName("MarshalParquet"); ok {
-					newItem.GoType = m.Type.Out(0)
-				} else if f.PkgPath == "" && f.Type.String() == "time.Time" {
-					newItem.GoType = reflect.TypeOf(int64(0))
-				} else {
-					newItem.GoType = f.Type
-				}
+				newItem.GoType = f.Type
 
 				if f.Type.Kind() == reflect.Ptr {
 					newItem.GoType = f.Type.Elem()
 					newItem.Info.RepetitionType = parquet.FieldRepetitionType_OPTIONAL
 				}
+
+				typ, required := ext.MarshalType(f)
+				newItem.GoType = typ
+				if !required {
+					newItem.Info.RepetitionType = parquet.FieldRepetitionType_OPTIONAL
+				}
+
 				stack = append(stack, newItem)
 			}
 		} else if item.GoType.Kind() == reflect.Slice &&
