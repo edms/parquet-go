@@ -37,16 +37,16 @@ func NewNodeBuf(ln int) *NodeBufType {
 	return nodeBuf
 }
 
-func (self *NodeBufType) GetNode() *Node {
-	if self.Index >= len(self.Buf) {
-		self.Buf = append(self.Buf, new(Node))
+func (nbt *NodeBufType) GetNode() *Node {
+	if nbt.Index >= len(nbt.Buf) {
+		nbt.Buf = append(nbt.Buf, new(Node))
 	}
-	self.Index++
-	return self.Buf[self.Index-1]
+	nbt.Index++
+	return nbt.Buf[nbt.Index-1]
 }
 
-func (self *NodeBufType) Reset() {
-	self.Index = 0
+func (nbt *NodeBufType) Reset() {
+	nbt.Index = 0
 }
 
 ////////for improve performance///////////////////////////////////
@@ -131,7 +131,7 @@ func (p *ParquetSlice) Marshal(node *Node, nodeBuf *NodeBufType) []*Node {
 	path := node.PathMap.Path
 	if *p.schemaHandler.SchemaElements[p.schemaHandler.MapIndex[node.PathMap.Path]].RepetitionType != parquet.FieldRepetitionType_REPEATED {
 		pathMap = pathMap.Children["List"].Children["Element"]
-		path += ".List" + ".Element"
+		path = path + common.PAR_GO_PATH_DELIMITER + "List" + common.PAR_GO_PATH_DELIMITER + "Element"
 	}
 	if ln <= 0 {
 		return nodes
@@ -159,7 +159,7 @@ type ParquetMap struct {
 
 func (p *ParquetMap) Marshal(node *Node, nodeBuf *NodeBufType) []*Node {
 	nodes := make([]*Node, 0)
-	path := node.PathMap.Path + ".Key_value"
+	path := node.PathMap.Path + common.PAR_GO_PATH_DELIMITER + "Key_value"
 	keys := node.Val.MapKeys()
 	if len(keys) <= 0 {
 		return nodes
@@ -195,7 +195,7 @@ func (p *ParquetMap) Marshal(node *Node, nodeBuf *NodeBufType) []*Node {
 }
 
 //Convert the objects to table map. srcInterface is a slice of objects
-func Marshal(srcInterface []interface{}, bgn int, end int, schemaHandler *schema.SchemaHandler) (tb *map[string]*layout.Table, err error) {
+func Marshal(srcInterface []interface{}, schemaHandler *schema.SchemaHandler) (tb *map[string]*layout.Table, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			switch x := r.(type) {
@@ -230,7 +230,7 @@ func Marshal(srcInterface []interface{}, bgn int, end int, schemaHandler *schema
 	}
 
 	stack := make([]*Node, 0, 100)
-	for i := bgn; i < end; i++ {
+	for i := 0; i < len(srcInterface); i++ {
 		stack = stack[:0]
 		nodeBuf.Reset()
 
@@ -267,8 +267,8 @@ func Marshal(srcInterface []interface{}, bgn int, end int, schemaHandler *schema
 			} else {
 				table := res[node.PathMap.Path]
 				schemaIndex := schemaHandler.MapIndex[node.PathMap.Path]
-				sele := schemaHandler.SchemaElements[schemaIndex]
-				table.Values = append(table.Values, types.GoTypeToParquetType(node.Val.Interface(), sele.Type, sele.ConvertedType))
+				schema := schemaHandler.SchemaElements[schemaIndex]
+				table.Values = append(table.Values, types.InterfaceToParquetType(node.Val.Interface(), schema.Type))
 				table.DefinitionLevels = append(table.DefinitionLevels, node.DL)
 				table.RepetitionLevels = append(table.RepetitionLevels, node.RL)
 				continue
@@ -282,7 +282,7 @@ func Marshal(srcInterface []interface{}, bgn int, end int, schemaHandler *schema
 				if numChildren > int32(0) {
 					for key, table := range res {
 						if strings.HasPrefix(key, path) &&
-							(len(key) == len(path) || key[len(path)] == '.') {
+							(len(key) == len(path) || key[len(path)] == common.PAR_GO_PATH_DELIMITER[0]) {
 							table.Values = append(table.Values, nil)
 							table.DefinitionLevels = append(table.DefinitionLevels, node.DL)
 							table.RepetitionLevels = append(table.RepetitionLevels, node.RL)

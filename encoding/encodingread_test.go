@@ -3,18 +3,21 @@ package encoding
 import (
 	"bytes"
 	"fmt"
+	"math"
+	"math/bits"
+	"strconv"
 	"testing"
+	"unsafe"
 
-	. "github.com/xitongsys/parquet-go/common"
 	"github.com/xitongsys/parquet-go/parquet"
 )
 
 func TestReadPlainBOOLEAN(t *testing.T) {
 	testData := [][]interface{}{
-		[]interface{}{(true)},
-		[]interface{}{(false)},
-		[]interface{}{(false), (false)},
-		[]interface{}{(false), (true)},
+		{(true)},
+		{(false)},
+		{(false), (false)},
+		{(false), (true)},
 	}
 
 	for _, data := range testData {
@@ -118,7 +121,9 @@ func TestReadPlainDOUBLE(t *testing.T) {
 }
 
 func TestReadUnsignedVarInt(t *testing.T) {
-	testData := []uint64{1, 2, 3, 11, 22, 33, 111, 222, 333, 0}
+	i32 := int32(-1570499385)
+
+	testData := []uint64{1, 2, 3, 11, 1570499385, uint64(i32), 111, 222, 333, 0}
 	for _, data := range testData {
 		res, _ := ReadUnsignedVarInt(bytes.NewReader(WriteUnsignedVarInt(data)))
 		if fmt.Sprintf("%v", data) != fmt.Sprintf("%v", res) {
@@ -129,13 +134,13 @@ func TestReadUnsignedVarInt(t *testing.T) {
 
 func TestReadRLEBitPackedHybrid(t *testing.T) {
 	testData := [][]interface{}{
-		[]interface{}{int64(1), int64(2), int64(3), int64(4)},
-		[]interface{}{int64(0), int64(0), int64(0), int64(0), int64(0)},
+		{int64(1), int64(2), int64(3), int64(4)},
+		{int64(0), int64(0), int64(0), int64(0), int64(0)},
 	}
 	for _, data := range testData {
 		maxVal := uint64(data[len(data)-1].(int64))
 
-		res, err := ReadRLEBitPackedHybrid(bytes.NewReader(WriteRLEBitPackedHybrid(data, int32(BitNum(maxVal)), parquet.Type_INT64)), uint64(BitNum(maxVal)), 0)
+		res, err := ReadRLEBitPackedHybrid(bytes.NewReader(WriteRLEBitPackedHybrid(data, int32(bits.Len64(maxVal)), parquet.Type_INT64)), uint64(bits.Len64(maxVal)), 0)
 		if fmt.Sprintf("%v", data) != fmt.Sprintf("%v", res) {
 			t.Errorf("ReadRLEBitpackedHybrid error, expect %v, get %v, err info:%v", data, res, err)
 		}
@@ -144,11 +149,57 @@ func TestReadRLEBitPackedHybrid(t *testing.T) {
 
 func TestReadDeltaBinaryPackedINT(t *testing.T) {
 	testData := [][]interface{}{
-		[]interface{}{int64(1), int64(2), int64(3), int64(4)},
-		[]interface{}{int64(0), int64(0), int64(0), int64(0), int64(0)},
+		{int64(1), int64(2), int64(3), int64(4)},
+		{int64(math.MaxInt64), int64(math.MinInt64), int64(-15654523568543623), int64(4354365463543632), int64(0)},
 	}
+
 	for _, data := range testData {
-		res, _ := ReadDeltaBinaryPackedINT(bytes.NewReader(WriteDeltaINT64(data)))
+		fmt.Println(data)
+		res, err := ReadDeltaBinaryPackedINT64(bytes.NewReader(WriteDeltaINT64(data)))
+		if err != nil {
+			t.Error(err)
+		}
+
+		if fmt.Sprintf("%v", data) != fmt.Sprintf("%v", res) {
+			t.Errorf("ReadRLEBitpackedHybrid error, expect %v, get %v", data, res)
+		}
+	}
+}
+
+func TestReadDeltaINT32(t *testing.T) {
+	bInt32 := func(n int32) string { return strconv.FormatUint(uint64(*(*uint32)(unsafe.Pointer(&n))), 2) }
+	buInt64 := func(n uint64) string { return strconv.FormatUint(n, 2) }
+	testData := []int32{1, -1570499385, 3, -11, 1570499385, 111, 222, 333, 0}
+	for _, data := range testData {
+		fmt.Println("SRC32:", bInt32(data), data)
+		u64 := uint64((data >> 31) ^ (data << 1))
+		fmt.Println("SRC64:", buInt64(u64))
+		resZigZag, err := ReadUnsignedVarInt(bytes.NewReader(WriteUnsignedVarInt(u64)))
+		if err != nil {
+			t.Error(err)
+		}
+		res32 := int32(resZigZag)
+		var res int32 = int32(uint32(res32)>>1) ^ -(res32 & 1)
+		fmt.Println("RES32:", bInt32(res), res)
+		if fmt.Sprintf("%v", data) != fmt.Sprintf("%v", res) {
+			t.Errorf("ReadUnsignedVarInt err, %v", data)
+		}
+	}
+}
+
+func TestReadDeltaBinaryPackedINT32(t *testing.T) {
+	testData := [][]interface{}{
+		{int32(1), int32(2), int32(3), int32(4)},
+		{int32(-1570499385), int32(-1570499385), int32(-1570499386), int32(-1570499388), int32(-1570499385)},
+	}
+
+	for _, data := range testData {
+		fmt.Println("source:", data)
+
+		res, err := ReadDeltaBinaryPackedINT32(bytes.NewReader(WriteDeltaINT32(data)))
+		if err != nil {
+			t.Error(err)
+		}
 		if fmt.Sprintf("%v", data) != fmt.Sprintf("%v", res) {
 			t.Errorf("ReadRLEBitpackedHybrid error, expect %v, get %v", data, res)
 		}
@@ -157,7 +208,7 @@ func TestReadDeltaBinaryPackedINT(t *testing.T) {
 
 func TestReadDeltaByteArray(t *testing.T) {
 	testData := [][]interface{}{
-		[]interface{}{"Hello", "world"},
+		{"Hello", "world"},
 	}
 	for _, data := range testData {
 		res, _ := ReadDeltaByteArray(bytes.NewReader(WriteDeltaByteArray(data)))
@@ -169,7 +220,7 @@ func TestReadDeltaByteArray(t *testing.T) {
 
 func TestReadLengthDeltaByteArray(t *testing.T) {
 	testData := [][]interface{}{
-		[]interface{}{"Hello", "world"},
+		{"Hello", "world"},
 	}
 	for _, data := range testData {
 		res, _ := ReadDeltaLengthByteArray(bytes.NewReader(WriteDeltaLengthByteArray(data)))
@@ -181,13 +232,13 @@ func TestReadLengthDeltaByteArray(t *testing.T) {
 
 func TestReadBitPacked(t *testing.T) {
 	testData := [][]interface{}{
-		[]interface{}{1, 2, 3, 4, 5, 6, 7, 8},
-		[]interface{}{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{1, 2, 3, 4, 5, 6, 7, 8},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	}
 	for _, data := range testData {
 		ln := len(data)
 		header := ((ln/8)<<1 | 1)
-		bitWidth := BitNum(uint64(data[ln-1].(int)))
+		bitWidth := uint64(bits.Len(uint(data[ln-1].(int))))
 		res, _ := ReadBitPacked(bytes.NewReader(WriteBitPacked(data, int64(bitWidth), false)), uint64(header), bitWidth)
 		if fmt.Sprintf("%v", res) != fmt.Sprintf("%v", data) {
 

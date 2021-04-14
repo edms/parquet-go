@@ -5,19 +5,20 @@ import (
 	"time"
 
 	"github.com/xitongsys/parquet-go-source/local"
+	"github.com/xitongsys/parquet-go/common"
 	"github.com/xitongsys/parquet-go/reader"
 	"github.com/xitongsys/parquet-go/writer"
 )
 
 type Student struct {
-	Name   string           `parquet:"name=name, type=UTF8"`
+	Name   string           `parquet:"name=name, type=BYTE_ARRAY, convertedtype=UTF8"`
 	Age    int32            `parquet:"name=age, type=INT32"`
 	Id     int64            `parquet:"name=id, type=INT64"`
 	Weight float32          `parquet:"name=weight, type=FLOAT"`
 	Sex    bool             `parquet:"name=sex, type=BOOLEAN"`
-	Day    int32            `parquet:"name=day, type=DATE"`
-	Class  []string         `parquet:"name=class, type=SLICE, valuetype=UTF8"`
-	Score  map[string]int32 `parquet:"name=score, type=MAP, keytype=UTF8, valuetype=INT32"`
+	Day    int32            `parquet:"name=day, type=INT32, convertedtype=DATE"`
+	Class  []string         `parquet:"name=class, type=SLICE, convertedtype=SLICE, valuetype=BYTE_ARRAY, valueconvertedtype=UTF8"`
+	Score  map[string]int32 `parquet:"name=score, type=MAP, convertedtype=MAP, keytype=BYTE_ARRAY, keyconvertedtype=UTF8, valuetype=INT32"`
 }
 
 func main() {
@@ -28,8 +29,8 @@ func main() {
 		log.Println("Can't create file", err)
 		return
 	}
-	pw, err := 
-	writer.NewParquetWriter(fw, new(Student), 4)
+	pw, err :=
+		writer.NewParquetWriter(fw, new(Student), 4)
 	if err != nil {
 		log.Println("Can't create parquet writer")
 		return
@@ -72,15 +73,15 @@ func main() {
 	}
 	num = int64(pr.GetNumRows())
 
-	pr.SkipRowsByPath("parquet_go_root.name", 5) //skip the first five rows
-	names, rls, dls, err = pr.ReadColumnByPath("parquet_go_root.name", num)
+	pr.SkipRowsByPath(common.ReformPathStr("parquet_go_root.name"), 5) //skip the first five rows
+	names, rls, dls, err = pr.ReadColumnByPath(common.ReformPathStr("parquet_go_root.name"), num)
 	log.Println("name", names, rls, dls, err)
 
-	classes, rls, dls, err = pr.ReadColumnByPath("parquet_go_root.class.list.element", num)
+	classes, rls, dls, err = pr.ReadColumnByPath(common.ReformPathStr("parquet_go_root.class.list.element"), num)
 	log.Println("class", classes, rls, dls, err)
 
-	scores_key, rls, dls, err = pr.ReadColumnByPath("parquet_go_root.score.key_value.key", num)
-	scores_value, rls, dls, err = pr.ReadColumnByPath("parquet_go_root.score.key_value.value", num)
+	scores_key, rls, dls, err = pr.ReadColumnByPath(common.ReformPathStr("parquet_go_root.score.key_value.key"), num)
+	scores_value, rls, dls, err = pr.ReadColumnByPath(common.ReformPathStr("parquet_go_root.score.key_value.value"), num)
 	log.Println("parquet_go_root.scores_key", scores_key, err)
 	log.Println("parquet_go_root.scores_value", scores_value, err)
 

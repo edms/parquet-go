@@ -1,16 +1,24 @@
 package writer
 
 import (
+	"io"
+
+	"github.com/xitongsys/parquet-go-source/writerfile"
 	"github.com/xitongsys/parquet-go/layout"
 	"github.com/xitongsys/parquet-go/marshal"
+	"github.com/xitongsys/parquet-go/parquet"
+	"github.com/xitongsys/parquet-go/schema"
 	"github.com/xitongsys/parquet-go/source"
 	"github.com/xitongsys/parquet-go/types"
-	"github.com/xitongsys/parquet-go/schema"
-	"github.com/xitongsys/parquet-go/parquet"
 )
 
 type CSVWriter struct {
 	ParquetWriter
+}
+
+func NewCSVWriterFromWriter(md []string, w io.Writer, np int64) (*CSVWriter, error) {
+	wf := writerfile.NewWriterFile(w)
+	return NewCSVWriter(md, wf, np)
 }
 
 //Create CSV writer
@@ -34,7 +42,7 @@ func NewCSVWriter(md []string, pfile source.ParquetFile, np int64) (*CSVWriter, 
 }
 
 //Write string values to parquet file
-func (self *CSVWriter) WriteString(recsi interface{}) error {
+func (w *CSVWriter) WriteString(recsi interface{}) error {
 	recs := recsi.([]*string)
 	lr := len(recs)
 	rec := make([]interface{}, lr)
@@ -42,13 +50,13 @@ func (self *CSVWriter) WriteString(recsi interface{}) error {
 		rec[i] = nil
 		if recs[i] != nil {
 			rec[i] = types.StrToParquetType(*recs[i],
-				self.SchemaHandler.SchemaElements[i+1].Type,
-				self.SchemaHandler.SchemaElements[i+1].ConvertedType,
-				int(self.SchemaHandler.SchemaElements[i+1].GetTypeLength()),
-				int(self.SchemaHandler.SchemaElements[i+1].GetScale()),
+				w.SchemaHandler.SchemaElements[i+1].Type,
+				w.SchemaHandler.SchemaElements[i+1].ConvertedType,
+				int(w.SchemaHandler.SchemaElements[i+1].GetTypeLength()),
+				int(w.SchemaHandler.SchemaElements[i+1].GetScale()),
 			)
 		}
 	}
 
-	return self.Write(rec)
+	return w.Write(rec)
 }
