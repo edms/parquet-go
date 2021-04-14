@@ -71,7 +71,10 @@ func CustomMarshal(v reflect.Value) reflect.Value {
 		return reflect.ValueOf(m.Time)
 
 	case time.Time:
-		return reflect.ValueOf(m.UnixNano() / int64(time.Millisecond))
+		return reflect.ValueOf(int64(time.Nanosecond) * m.UnixNano() / int64(time.Microsecond))
+
+	case TimeMillis:
+		return reflect.ValueOf(m.Time.UnixNano() / int64(time.Millisecond))
 
 	case decimal.Decimal:
 		num := strings.Replace(m.StringFixed(9), ".", "", -1)
@@ -104,9 +107,11 @@ func MarshalType(f reflect.StructField) (reflect.Type, bool) {
 		case "sql.NullString":
 			return reflect.TypeOf(string("")), false
 		case "sql.NullTime":
-			return reflect.TypeOf(int64(0)), false // timestamp millis
+			return reflect.TypeOf(int64(0)), false // timestamp micros
 		}
 	} else if pkgPath == "time" && ty == "time.Time" {
+		return reflect.TypeOf(int64(0)), true // timestamp micros
+	} else if pkgPath == "github.com/edms/parquet-go" && ty == "ext.TimeMillis" {
 		return reflect.TypeOf(int64(0)), true // timestamp millis
 	} else if pkgPath == "github.com/shopspring/decimal" && ty == "decimal.Decimal" {
 		return reflect.TypeOf(string("")), true
