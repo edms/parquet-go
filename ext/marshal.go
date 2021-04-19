@@ -6,13 +6,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"github.com/xitongsys/parquet-go/types"
 )
-
-// type ParquetMarshaler interface {
-//   MarshalParquet() interface{}
-// }
 
 func CustomMarshal(v reflect.Value) reflect.Value {
 	// Check if struct has a Method called MarshalParquet and returns first output parameter
@@ -79,6 +76,9 @@ func CustomMarshal(v reflect.Value) reflect.Value {
 	case decimal.Decimal:
 		num := strings.Replace(m.StringFixed(9), ".", "", -1)
 		return reflect.ValueOf(types.StrIntToBinary(num, "BigEndian", 16, true))
+
+	case uuid.UUID:
+		return reflect.ValueOf(m.String())
 
 	default:
 		return v
