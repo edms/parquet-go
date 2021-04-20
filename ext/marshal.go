@@ -52,12 +52,16 @@ func CustomMarshal(v reflect.Value) reflect.Value {
 		return reflect.ValueOf(m.Int64)
 
 	case sql.NullString:
+		var val *string
+
 		if !m.Valid {
-			var val *string
 			return reflect.ValueOf(val)
 		}
 
-		return reflect.ValueOf(m.String)
+		// if repetition type is optional then return value (e.g. "")
+		// otherwise return a pointer
+		val = &m.String
+		return reflect.ValueOf(val)
 
 	case sql.NullTime:
 		if !m.Valid {
