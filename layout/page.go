@@ -268,7 +268,9 @@ func (page *Page) DataPageCompress(compressType parquet.CompressionCodec) []byte
 		page.Header.DataPageHeader.Statistics.MinValue = tmpBuf
 	}
 
-	page.Header.DataPageHeader.Statistics.NullCount = page.NullCount
+	if page.NullCount != nil {
+		page.Header.DataPageHeader.Statistics.NullCount = page.NullCount
+	}
 
 	ts := thrift.NewTSerializer()
 	ts.Protocol = thrift.NewTCompactProtocolFactory().GetProtocol(ts.Transport)
