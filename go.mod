@@ -1,6 +1,6 @@
-module github.com/xitongsys/parquet-go
+module github.com/edms/parquet-go
 
-go 1.13
+go 1.16
 
 require (
 	github.com/apache/thrift v0.13.1-0.20201008052519-daf620915714
